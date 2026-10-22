@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Three Agent LangGraph Demo</title>
+  <style>
+    :root { color-scheme: light; --ink:#1f2937; --muted:#667085; --line:#e5e7eb; --blue:#3157d5; --pale:#f4f6fb; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--pale); color:var(--ink); font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }
+    main { width:min(920px,calc(100% - 32px)); margin:54px auto; }
+    .eyebrow { color:var(--blue); font-size:12px; font-weight:750; letter-spacing:.12em; text-transform:uppercase; }
+    h1 { margin:8px 0; font-size:clamp(30px,5vw,42px); letter-spacing:-.04em; }
+    .intro { color:var(--muted); margin:0 0 24px; }
+    .panel { background:white; border:1px solid var(--line); border-radius:16px; padding:24px; box-shadow:0 12px 34px #202b4b0b; }
+    form { display:flex; gap:10px; }
+    input { flex:1; min-width:0; border:1px solid #cfd4df; border-radius:10px; padding:13px 14px; font:inherit; }
+    input:focus { outline:3px solid #3157d52b; border-color:var(--blue); }
+    button { border:0; border-radius:10px; padding:0 20px; background:var(--blue); color:#fff; font:inherit; font-weight:700; cursor:pointer; }
+    button:disabled { opacity:.65; cursor:wait; }
+    .route { display:flex; align-items:center; justify-content:center; gap:10px; margin:26px 0 18px; color:var(--muted); font-size:13px; font-weight:650; }
+    .route b { color:var(--blue); font-size:18px; }
+    .agents { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+    article, .final { border:1px solid var(--line); border-radius:12px; padding:18px; background:#fff; }
+    article { min-height:175px; }
+    .agent-name { display:flex; align-items:center; gap:9px; font-weight:750; margin-bottom:12px; }
+    .number { display:grid; place-items:center; width:27px; height:27px; border-radius:50%; background:#edf1ff; color:var(--blue); font-size:13px; }
+    .agent-content { color:#4b5563; white-space:pre-wrap; font-size:14px; }
+    .placeholder { color:#a0a6b2; font-style:italic; }
+    .final { margin-top:14px; background:#f8f9ff; border-color:#dce3ff; }
+    .final h2 { margin:0 0 8px; font-size:16px; }
+    #final-answer { margin:0; font-size:17px; font-weight:600; }
+    .hint { color:var(--muted); font-size:12px; margin:15px 2px 0; }
+    #error { color:#b42318; min-height:24px; margin-top:10px; }
+    @media(max-width:650px) { main{margin:30px auto} .panel{padding:17px} form{flex-direction:column} button{padding:12px} .route{flex-wrap:wrap;gap:6px} .agents{grid-template-columns:1fr} article{min-height:0} }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">A tiny LangGraph walkthrough</div>
+    <h1>Three agents, one shared state</h1>
+    <p class="intro">Give the workflow a topic and watch it pass through Researcher, Analyst, and Writer.</p>
+    <section class="panel" aria-label="Agent workflow">
+      <form id="topic-form">
+        <input id="topic" name="topic" placeholder="Try: how plants grow" maxlength="500" required aria-label="Topic">
+        <button id="run-button" type="submit">Run agents <span aria-hidden="true">→</span></button>
+      </form>
+      <div id="error" role="alert"></div>
+      <div class="route" aria-label="Workflow order"><span>User topic</span><b>→</b><span>Researcher</span><b>→</b><span>Analyst</span><b>→</b><span>Writer</span><b>→</b><span>Answer</span></div>
+      <div class="agents">
+        <article><div class="agent-name"><span class="number">1</span>Researcher</div><div class="agent-content placeholder" id="research">Waiting for a topic…</div></article>
+        <article><div class="agent-name"><span class="number">2</span>Analyst</div><div class="agent-content placeholder" id="analysis">Waiting for research…</div></article>
+        <article><div class="agent-name"><span class="number">3</span>Writer</div><div class="agent-content placeholder" id="writer">Waiting for analysis…</div></article>
+      </div>
+      <section class="final"><h2>Final answer</h2><p id="final-answer" class="placeholder">The completed response will appear here.</p></section>
+      <p class="hint">Demo note: these agents use simple Python rules. They do not search the web or call an AI model.</p>
+    </section>
+  </main>
+  <script>
+    const form = document.querySelector('#topic-form');
+    const button = document.querySelector('#run-button');
+    const fields = {
+      research: document.querySelector('#research'),
+      analysis: document.querySelector('#analysis'),
+      writer: document.querySelector('#writer'),
+      answer: document.querySelector('#final-answer'),
+      error: document.querySelector('#error'),
+    };
+    function show(id, text) {
+      fields[id].textContent = text;
+      fields[id].classList.remove('placeholder');
+    }
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      fields.error.textContent = '';
+      button.disabled = true;
+      button.textContent = 'Running…';
+      try {
+        const response = await fetch('/run', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({topic: document.querySelector('#topic').value})
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'The workflow could not run.');
+        show('research', data.research);
+        show('analysis', data.analysis);
+        show('writer', data.final_answer);
+        show('answer', data.final_answer);
+      } catch (error) {
+        fields.error.textContent = error.message;
+      } finally {
+        button.disabled = false;
+        button.innerHTML = 'Run agents <span aria-hidden="true">→</span>';
+      }
+    });
+  </script>
+</body>
+</html>
